@@ -52,6 +52,10 @@
 #include <opencv2/imgproc.hpp>
 
 #include <opencv2/core/utils/configuration.private.hpp>
+//liyuming add
+#include "opencv2/core/persistence.hpp"
+#include "opencv2/core/core_c.h"
+//liyuming add
 
 namespace cv {
 namespace dnn {
@@ -2012,6 +2016,110 @@ std::vector<String> Net::getLayerNames() const
     }
 
     return res;
+}
+
+static inline bool cv_isalnum(char c)
+{
+    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
+}
+
+//liyuming add
+void Net::dumpXml(const String &dumpPath) const
+{
+	//FileStorage --- too complicated, use c type api... liyuming how to do in c++ like cvStartWriteStruct
+	CvFileStorage * fileStorage;
+	String xmlname = dumpPath+"/modeldump.xml";
+	fileStorage = cvOpenFileStorage( xmlname.c_str(), 0, CV_STORAGE_WRITE );
+	if(fileStorage!=0){
+		FILE* fbin;
+		int fbinoffset=0;
+		String binname = dumpPath+"/modeldump.bin";
+		fbin = fopen(binname.c_str(), "wb" );
+		if(!fbin){
+			cvReleaseFileStorage( &fileStorage );
+			return;
+		}
+		Impl::MapIdToLayerData::iterator it;
+		for (it = impl->layers.begin(); it != impl->layers.end(); it++)
+		{
+			LayerData &ld = it->second;
+			if (!ld.id) //skip input layer
+				continue;
+			String layername;
+			for(int k=0;k<ld.name.length();k++){
+				if( !cv_isalnum(ld.name[k]) && ld.name[k] != '_' && ld.name[k] != '-' )
+					layername+='-';
+				else
+					layername+=ld.name[k];
+			}
+			cvStartWriteStruct(fileStorage, layername.c_str(), CV_NODE_MAP);
+			//-----------the layer param -------------------------
+			cvWriteString( fileStorage, "Type", ld.type.c_str());
+			std::map<String, DictValue>::iterator paramit;
+			for (paramit = ld.params.dict.begin(); paramit != ld.params.dict.end(); paramit++)
+			{
+				DictValue &dv = paramit->second;
+				if(dv.size()>1){
+					cvStartWriteStruct( fileStorage, paramit->first.c_str(), CV_NODE_SEQ );
+					cvStartWriteStruct( fileStorage, NULL, CV_NODE_SEQ | CV_NODE_FLOW );
+					for(int i=0;i<dv.size();i++){
+						if(dv.isInt()){
+							cvWriteInt( fileStorage, NULL, dv.getIntValue(i));
+						}	
+						else if(dv.isReal()){
+							cvWriteReal( fileStorage, NULL, dv.getRealValue(i));
+						}
+						else if(dv.isString()){
+							cvWriteString( fileStorage, NULL, dv.getStringValue(i).c_str());
+						}					
+					}
+					cvEndWriteStruct( fileStorage );
+					cvEndWriteStruct( fileStorage );
+				}
+				else if(dv.size()==1){
+					if(dv.isInt()){
+						cvWriteInt( fileStorage, paramit->first.c_str(), dv.getIntValue(0));
+					}	
+					else if(dv.isReal()){
+						cvWriteReal( fileStorage, paramit->first.c_str(), dv.getRealValue(0));
+					}
+					else if(dv.isString()){
+						cvWriteString( fileStorage, paramit->first.c_str(), dv.getStringValue(0).c_str());
+					}						
+				}
+			}
+			//-----------the layer data -------------------------
+			if(ld.params.blobs.size()>0)
+			{
+				cvStartWriteStruct( fileStorage, "trained_data", CV_NODE_MAP );
+				for(int i=0;i<ld.params.blobs.size();i++){
+					Mat& data=ld.params.blobs[i];
+					char strid[10];
+					sprintf(strid, "id_%d", i);
+					cvStartWriteStruct( fileStorage, strid, CV_NODE_MAP );
+					
+					cvStartWriteStruct( fileStorage, "shape", CV_NODE_SEQ );
+					cvStartWriteStruct( fileStorage, NULL, CV_NODE_SEQ | CV_NODE_FLOW );
+					for(int j=0;j<data.dims;j++)
+						cvWriteInt( fileStorage, NULL, data.size[j]);
+					cvEndWriteStruct( fileStorage );//shape CV_NODE_SEQ
+					cvEndWriteStruct( fileStorage );// CV_NODE_SEQ | CV_NODE_FLOW
+					float *fdata = data.ptr<float>();
+					size_t datasize = sizeof(float)*data.total();
+					fwrite(fdata, sizeof(float), data.total(), fbin );
+					cvWriteInt( fileStorage, "offset", fbinoffset);
+					cvWriteInt( fileStorage, "size", datasize);
+					fbinoffset+=datasize;
+					
+					cvEndWriteStruct( fileStorage );//strid
+				}
+				cvEndWriteStruct( fileStorage );//trained_data
+			}
+			cvEndWriteStruct(fileStorage);
+		}
+		cvReleaseFileStorage( &fileStorage );
+		fclose(fbin);
+	}
 }
 
 bool Net::empty() const

@@ -353,6 +353,8 @@ CV__DNN_EXPERIMENTAL_NS_BEGIN
         CV_WRAP int getLayerId(const String &layer);
 
         CV_WRAP std::vector<String> getLayerNames() const;
+		
+		CV_WRAP void dumpXml(const String &dumpPath) const;  //liyuming add
 
         /** @brief Container for strings and integers. */
         typedef DictValue LayerId;

@@ -113,10 +113,11 @@ private:
 class CV_EXPORTS Dict
 {
     typedef std::map<String, DictValue> _Dict;
-    _Dict dict;
 
 public:
 
+    _Dict dict; //liyuming change it...
+	
     //! Checks a presence of the @p key in the dictionary.
     bool has(const String &key) const;
 

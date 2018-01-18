@@ -100,3 +100,9 @@ if(BUILD_PERF_TESTS)
     endif()
   endif()
 endif()
+
+SET(OPENCV_DNN_SAMPLES_REQUIRED_DEPS opencv_core opencv_imgproc opencv_dnn opencv_imgcodecs opencv_videoio opencv_highgui
+    ${OpenCV_LIB_COMPONENTS})
+ocv_include_modules_recurse(${OPENCV_DNN_SAMPLES_REQUIRED_DEPS})
+add_executable(dumpnet dumpnet/dumpnet.cpp)
+ocv_target_link_libraries(dumpnet ${OPENCV_LINKER_LIBS} ${OPENCV_DNN_SAMPLES_REQUIRED_DEPS})

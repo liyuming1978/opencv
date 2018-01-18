@@ -1,0 +1,6 @@
+modified:   modules/dnn/CMakeLists.txt
+modified:   modules/dnn/include/opencv2/dnn/dict.hpp
+modified:   modules/dnn/include/opencv2/dnn/dnn.hpp
+modified:   modules/dnn/src/dnn.cpp
+
+add:  modules/dnn/dumpnet/
